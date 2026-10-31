@@ -1,12 +1,13 @@
 {
   "name": "opencode-ocremote",
   "version": "0.1.0",
-  "description": "Provider-neutral usage integrations for OC Remote",
+  "description": "Provider-neutral usage and TUI appearance integrations for OC Remote",
   "private": true,
   "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./index.ts",
+    "./tui": "./src/tui.ts",
     "./rpc": "./src/rpc.ts"
   },
   "files": [
@@ -18,11 +19,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@opencode/plugin": "^2.2.0"
+    "@opencode/plugin": "^2.2.0",
+    "jsonc-parser": "^3.3.1"
   },
   "devDependencies": {
+    "@opencode/theme": "2.2.1",
+    "@opentui/core": "0.7.0",
+    "@opentui/solid": "0.7.0",
     "@types/bun": "latest",
     "@types/json-schema": "^7.0.15",
+    "solid-js": "1.9.12",
     "typescript": "^5.9.3"
   },
   "engines": {

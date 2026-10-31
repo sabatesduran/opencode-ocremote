@@ -59,6 +59,39 @@ const usageSnapshot = {
 
 const nullableSnapshot = { anyOf: [usageSnapshot, { type: "null" }] } as const
 
+const appearanceAgent = {
+  type: "object",
+  properties: {
+    id: { type: "string" },
+    color: { type: "string" },
+  },
+  required: ["id", "color"],
+  additionalProperties: false,
+} as const
+
+const appearanceInput = {
+  type: "object",
+  properties: {
+    theme: nullableString,
+    mode: { type: "string", enum: ["dark", "light"] },
+    agents: { type: "array", items: appearanceAgent },
+  },
+  required: ["theme", "mode", "agents"],
+  additionalProperties: false,
+} as const
+
+const appearanceOutput = {
+  type: "object",
+  properties: {
+    schemaVersion: { type: "number" },
+    theme: nullableString,
+    mode: { anyOf: [{ type: "string", enum: ["dark", "light"] }, { type: "null" }] },
+    agents: { type: "array", items: appearanceAgent },
+  },
+  required: ["schemaVersion", "theme", "mode", "agents"],
+  additionalProperties: false,
+} as const
+
 export const OCRemoteUsage = Rpc.define({
   id: "ocremote.usage",
   methods: {
@@ -91,6 +124,21 @@ export const OCRemoteUsage = Rpc.define({
         required: ["schemaVersion", "integrations"],
         additionalProperties: false,
       },
+    },
+  },
+  events: {},
+})
+
+export const OCRemoteAppearance = Rpc.define({
+  id: "ocremote.appearance",
+  methods: {
+    get: {
+      input: { type: "object", additionalProperties: false },
+      output: appearanceOutput,
+    },
+    sync: {
+      input: appearanceInput,
+      output: appearanceOutput,
     },
   },
   events: {},
