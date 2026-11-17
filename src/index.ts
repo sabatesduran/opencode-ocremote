@@ -24,6 +24,12 @@ export default Plugin.define({
           usageIntegrations.map((integration) => integration.read(context, rpc.signal)),
         ),
       }),
+      consumeReset: async (input, rpc) => {
+        const request = input as { integrationID: string; idempotencyKey: string }
+        const integration = usageIntegrations.find((candidate) => candidate.id === request.integrationID)
+        if (!integration?.consumeReset) throw new Error("This usage integration does not support resets.")
+        return integration.consumeReset(context, rpc.signal, request.idempotencyKey)
+      },
     })
   },
 })

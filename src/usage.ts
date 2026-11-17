@@ -15,6 +15,19 @@ export type UsageLimit = {
   windows: UsageWindow[]
 }
 
+export type UsageResetCredit = {
+  status: string
+  title: string | null
+  description: string | null
+  grantedAt: number | null
+  expiresAt: number | null
+}
+
+export type UsageResetCredits = {
+  availableCount: number
+  credits: UsageResetCredit[] | null
+}
+
 export type UsageSnapshot = {
   plan: string | null
   allowed: boolean | null
@@ -27,6 +40,7 @@ export type UsageSnapshot = {
     unlimited: boolean
     value: string | null
   }>
+  resetCredits: UsageResetCredits | null
 }
 
 export function normalizeCodexUsage(value: unknown, fetchedAt = Date.now()): UsageSnapshot {
@@ -56,6 +70,8 @@ export function normalizeCodexUsage(value: unknown, fetchedAt = Date.now()): Usa
         value: string(rawCredits.balance),
       }]
     : []
+  const resetCreditSummary = objectOrNull(payload.rate_limit_reset_credits)
+  const availableResetCount = nonNegativeInteger(resetCreditSummary?.available_count)
 
   return {
     plan: string(payload.plan_type),
@@ -63,7 +79,31 @@ export function normalizeCodexUsage(value: unknown, fetchedAt = Date.now()): Usa
     fetchedAt,
     limits,
     balances,
+    resetCredits: availableResetCount === null
+      ? null
+      : { availableCount: availableResetCount, credits: null },
   }
+}
+
+export function normalizeResetCredits(value: unknown): UsageResetCredits {
+  const payload = object(value)
+  const availableCount = nonNegativeInteger(payload.available_count) ?? 0
+  const credits = array(payload.credits)
+    .map((item): UsageResetCredit | null => {
+      const credit = objectOrNull(item)
+      if (!credit || string(credit.status) !== "available") return null
+      return {
+        status: "available",
+        title: string(credit.title),
+        description: string(credit.description),
+        grantedAt: timestamp(credit.granted_at),
+        expiresAt: timestamp(credit.expires_at),
+      }
+    })
+    .filter((credit): credit is UsageResetCredit => credit !== null)
+    .sort((left, right) => (left.expiresAt ?? Number.POSITIVE_INFINITY) - (right.expiresAt ?? Number.POSITIVE_INFINITY))
+
+  return { availableCount, credits }
 }
 
 function limit(id: string, name: string | null, model: string | null, value: JsonObject | null): UsageLimit {
@@ -116,4 +156,18 @@ function finiteNumber(value: unknown): number | null {
 function positiveNumber(value: unknown): number | null {
   const number = finiteNumber(value)
   return number !== null && number > 0 ? number : null
+}
+
+function nonNegativeInteger(value: unknown): number | null {
+  const number = finiteNumber(value)
+  return number !== null && number >= 0 ? Math.floor(number) : null
+}
+
+function timestamp(value: unknown): number | null {
+  const numeric = finiteNumber(value)
+  if (numeric !== null) return numeric > 10_000_000_000 ? numeric / 1_000 : numeric > 0 ? numeric : null
+  const text = string(value)
+  if (!text) return null
+  const milliseconds = Date.parse(text)
+  return Number.isFinite(milliseconds) && milliseconds > 0 ? milliseconds / 1_000 : null
 }

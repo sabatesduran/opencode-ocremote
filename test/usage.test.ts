@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { normalizeCodexUsage } from "../src/usage.js"
+import { normalizeCodexUsage, normalizeResetCredits } from "../src/usage.js"
 
 describe("normalizeCodexUsage", () => {
   test("returns a sanitized provider-neutral snapshot", () => {
@@ -43,8 +43,40 @@ describe("normalizeCodexUsage", () => {
         unlimited: false,
         value: "0",
       }],
+      resetCredits: null,
     })
     expect(JSON.stringify(usage)).not.toContain("must-not-leak")
+  })
+
+  test("sanitizes reset-credit summaries and expiration details", () => {
+    const usage = normalizeCodexUsage({
+      rate_limit_reset_credits: { available_count: 2, secret: "must-not-leak" },
+    })
+    expect(usage.resetCredits).toEqual({ availableCount: 2, credits: null })
+
+    const details = normalizeResetCredits({
+      available_count: 2,
+      account_id: "must-not-leak",
+      credits: [
+        {
+          id: "must-not-leak",
+          status: "available",
+          title: "Full reset",
+          description: "Weekly and session windows",
+          granted_at: "2026-06-18T08:32:53Z",
+          expires_at: "2026-07-18T08:32:53Z",
+        },
+        {
+          id: "also-private",
+          status: "redeemed",
+          expires_at: null,
+        },
+      ],
+    })
+    expect(details.availableCount).toBe(2)
+    expect(details.credits).toHaveLength(1)
+    expect(details.credits?.[0]?.title).toBe("Full reset")
+    expect(JSON.stringify(details)).not.toContain("must-not-leak")
   })
 
   test("supports additional quota buckets and clamps percentages", () => {

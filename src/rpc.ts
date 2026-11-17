@@ -4,6 +4,34 @@ const nullableString = { anyOf: [{ type: "string" }, { type: "null" }] } as cons
 const nullableNumber = { anyOf: [{ type: "number" }, { type: "null" }] } as const
 const nullableBoolean = { anyOf: [{ type: "boolean" }, { type: "null" }] } as const
 
+const resetCredits = {
+  anyOf: [{
+    type: "object",
+    properties: {
+      availableCount: { type: "number" },
+      credits: {
+        anyOf: [{
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              title: nullableString,
+              description: nullableString,
+              grantedAt: nullableNumber,
+              expiresAt: nullableNumber,
+            },
+            required: ["status", "title", "description", "grantedAt", "expiresAt"],
+            additionalProperties: false,
+          },
+        }, { type: "null" }],
+      },
+    },
+    required: ["availableCount", "credits"],
+    additionalProperties: false,
+  }, { type: "null" }],
+} as const
+
 const usageWindow = {
   type: "object",
   properties: {
@@ -52,8 +80,9 @@ const usageSnapshot = {
         additionalProperties: false,
       },
     },
+    resetCredits,
   },
-  required: ["plan", "allowed", "fetchedAt", "limits", "balances"],
+  required: ["plan", "allowed", "fetchedAt", "limits", "balances", "resetCredits"],
   additionalProperties: false,
 } as const
 
@@ -122,6 +151,26 @@ export const OCRemoteUsage = Rpc.define({
           },
         },
         required: ["schemaVersion", "integrations"],
+        additionalProperties: false,
+      },
+    },
+    consumeReset: {
+      input: {
+        type: "object",
+        properties: {
+          integrationID: { type: "string" },
+          idempotencyKey: { type: "string" },
+        },
+        required: ["integrationID", "idempotencyKey"],
+        additionalProperties: false,
+      },
+      output: {
+        type: "object",
+        properties: {
+          code: { type: "string", enum: ["reset", "nothing_to_reset", "no_credit", "already_redeemed"] },
+          windowsReset: { type: "number" },
+        },
+        required: ["code", "windowsReset"],
         additionalProperties: false,
       },
     },

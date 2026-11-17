@@ -15,4 +15,9 @@ export type UsageIntegrationResult = {
 export type UsageIntegration = {
   id: string
   read(context: Plugin.Context, signal: AbortSignal): Promise<UsageIntegrationResult>
+  consumeReset?(
+    context: Plugin.Context,
+    signal: AbortSignal,
+    idempotencyKey: string,
+  ): Promise<{ code: "reset" | "nothing_to_reset" | "no_credit" | "already_redeemed"; windowsReset: number }>
 }

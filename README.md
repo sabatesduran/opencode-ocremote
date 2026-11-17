@@ -6,6 +6,10 @@ OpenCode host and return only allowlisted summaries. Credentials and account ide
 The first integration reports Codex quota for the active **Sign in with ChatGPT** account. More usage integrations can
 be added without changing the RPC consumed by OC Remote.
 
+When OpenAI grants banked rate-limit resets, the plugin also returns their sanitized count, labels, and expiration
+dates. OC Remote Pro can explicitly consume the earliest-expiring available reset. Consumption is never automatic,
+and OpenAI account and reset-credit identifiers remain on the host.
+
 Install it globally on the machine running OpenCode:
 
 ```sh
