@@ -19,5 +19,6 @@ export type UsageIntegration = {
     context: Plugin.Context,
     signal: AbortSignal,
     idempotencyKey: string,
+    selectionKey?: string,
   ): Promise<{ code: "reset" | "nothing_to_reset" | "no_credit" | "already_redeemed"; windowsReset: number }>
 }

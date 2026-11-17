@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { normalizeCodexUsage, normalizeResetCredits } from "../src/usage.js"
+import { registerResetSelection, selectedAvailableCreditID } from "../src/integrations/codex.js"
 
 describe("normalizeCodexUsage", () => {
   test("returns a sanitized provider-neutral snapshot", () => {
@@ -72,11 +73,15 @@ describe("normalizeCodexUsage", () => {
           expires_at: null,
         },
       ],
-    })
+    }, () => "opaque-selector")
     expect(details.availableCount).toBe(2)
     expect(details.credits).toHaveLength(1)
+    expect(details.credits?.[0]?.selectionKey).toBe("opaque-selector")
     expect(details.credits?.[0]?.title).toBe("Full reset")
-    expect(JSON.stringify(details)).not.toContain("must-not-leak")
+    const serialized = JSON.stringify(details)
+    expect(serialized).not.toContain("\"id\"")
+    expect(serialized).not.toContain("account_id")
+    expect(serialized).not.toContain("must-not-leak")
   })
 
   test("supports additional quota buckets and clamps percentages", () => {
@@ -103,5 +108,19 @@ describe("normalizeCodexUsage", () => {
         resetsAt: null,
       }],
     })
+  })
+
+  test("resolves an opaque selector to the chosen available credit", () => {
+    const details = {
+      credits: [
+        { id: "later-private-id", status: "available", expires_at: "2026-12-12T23:50:00Z" },
+        { id: "first-private-id", status: "available", expires_at: "2026-11-30T21:26:00Z" },
+      ],
+    }
+    const selectionKey = registerResetSelection("later-private-id")
+
+    expect(selectedAvailableCreditID(details, selectionKey)).toBe("later-private-id")
+    expect(selectedAvailableCreditID(details)).toBe("first-private-id")
+    expect(selectedAvailableCreditID(details, "unknown-selector")).toBeNull()
   })
 })

@@ -5,6 +5,8 @@ import { normalizeCodexUsage, normalizeResetCredits } from "../usage.js"
 const usageURL = "https://chatgpt.com/backend-api/wham/usage"
 const resetCreditsURL = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
 const consumeResetURL = `${resetCreditsURL}/consume`
+const selectionLifetimeMilliseconds = 15 * 60 * 1_000
+const resetSelections = new Map<string, { creditID: string; validUntil: number }>()
 
 export const codexUsageIntegration = {
   id: "openai-codex",
@@ -43,7 +45,12 @@ export const codexUsageIntegration = {
               headers: headers(context, auth),
               signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
             })
-            if (details.ok) snapshot.resetCredits = normalizeResetCredits(await details.json())
+            if (details.ok) {
+              snapshot.resetCredits = normalizeResetCredits(
+                await details.json(),
+                registerResetSelection,
+              )
+            }
           }
         } catch {
           // The summary remains useful when the optional details request fails.
@@ -54,7 +61,12 @@ export const codexUsageIntegration = {
       return result("unavailable", "ChatGPT returned an unsupported usage response.")
     }
   },
-  async consumeReset(context: Plugin.Context, signal: AbortSignal, idempotencyKey: string) {
+  async consumeReset(
+    context: Plugin.Context,
+    signal: AbortSignal,
+    idempotencyKey: string,
+    selectionKey?: string,
+  ) {
     const auth = await resolveAuth(context)
     if (!auth) throw new Error("Connect OpenAI on the OpenCode host.")
 
@@ -70,7 +82,7 @@ export const codexUsageIntegration = {
     if (!detailsResponse.ok) throw new Error("ChatGPT reset credits are temporarily unavailable.")
 
     const rawDetails = await detailsResponse.json()
-    const creditID = earliestAvailableCreditID(rawDetails)
+    const creditID = selectedAvailableCreditID(rawDetails, selectionKey)
     if (!creditID) return { code: "no_credit" as const, windowsReset: 0 }
 
     const response = await fetch(consumeResetURL, {
@@ -128,13 +140,34 @@ function headers(context: Plugin.Context, auth: Auth) {
   }
 }
 
-function earliestAvailableCreditID(value: unknown): string | null {
+export function selectedAvailableCreditID(value: unknown, selectionKey?: string): string | null {
+  pruneResetSelections()
   if (!isRecord(value) || !Array.isArray(value.credits)) return null
-  const credit = value.credits
+  const credits = value.credits
     .filter((item): item is Record<string, unknown> =>
       isRecord(item) && item.status === "available" && typeof item.id === "string" && item.id.length > 0)
-    .sort((left, right) => expiry(left.expires_at) - expiry(right.expires_at))[0]
+    .sort((left, right) => expiry(left.expires_at) - expiry(right.expires_at))
+  const selectedID = selectionKey ? resetSelections.get(selectionKey)?.creditID : undefined
+  if (selectionKey && !selectedID) return null
+  const credit = selectedID ? credits.find((item) => item.id === selectedID) : credits[0]
   return typeof credit?.id === "string" ? credit.id : null
+}
+
+export function registerResetSelection(creditID: string): string {
+  pruneResetSelections()
+  const selectionKey = crypto.randomUUID()
+  resetSelections.set(selectionKey, {
+    creditID,
+    validUntil: Date.now() + selectionLifetimeMilliseconds,
+  })
+  return selectionKey
+}
+
+function pruneResetSelections() {
+  const now = Date.now()
+  for (const [key, selection] of resetSelections) {
+    if (selection.validUntil <= now) resetSelections.delete(key)
+  }
 }
 
 function expiry(value: unknown): number {

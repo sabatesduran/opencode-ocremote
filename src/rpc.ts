@@ -15,13 +15,14 @@ const resetCredits = {
           items: {
             type: "object",
             properties: {
+              selectionKey: nullableString,
               status: { type: "string" },
               title: nullableString,
               description: nullableString,
               grantedAt: nullableNumber,
               expiresAt: nullableNumber,
             },
-            required: ["status", "title", "description", "grantedAt", "expiresAt"],
+            required: ["selectionKey", "status", "title", "description", "grantedAt", "expiresAt"],
             additionalProperties: false,
           },
         }, { type: "null" }],
@@ -160,6 +161,7 @@ export const OCRemoteUsage = Rpc.define({
         properties: {
           integrationID: { type: "string" },
           idempotencyKey: { type: "string" },
+          selectionKey: { type: "string" },
         },
         required: ["integrationID", "idempotencyKey"],
         additionalProperties: false,

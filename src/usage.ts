@@ -16,6 +16,7 @@ export type UsageLimit = {
 }
 
 export type UsageResetCredit = {
+  selectionKey: string | null
   status: string
   title: string | null
   description: string | null
@@ -85,14 +86,19 @@ export function normalizeCodexUsage(value: unknown, fetchedAt = Date.now()): Usa
   }
 }
 
-export function normalizeResetCredits(value: unknown): UsageResetCredits {
+export function normalizeResetCredits(
+  value: unknown,
+  selectionKeyForID?: (id: string) => string,
+): UsageResetCredits {
   const payload = object(value)
   const availableCount = nonNegativeInteger(payload.available_count) ?? 0
   const credits = array(payload.credits)
     .map((item): UsageResetCredit | null => {
       const credit = objectOrNull(item)
       if (!credit || string(credit.status) !== "available") return null
+      const id = string(credit.id)
       return {
+        selectionKey: id && selectionKeyForID ? selectionKeyForID(id) : null,
         status: "available",
         title: string(credit.title),
         description: string(credit.description),
